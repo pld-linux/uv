@@ -1,0 +1,16 @@
+Use thin LTO for 32-bit targets to avoid SIGABRT during fat-LTO link
+of the uv binary, which exhausts the ~3 GB process address space on
+i686/armv7hl/x32. Thin LTO retains most of the optimization benefit at
+a fraction of the peak link-time memory.
+
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -383,7 +383,7 @@
+
+ [profile.release]
+ strip = true
+-lto = "fat"
++lto = "thin"
+
+ # This profile is meant to mimic the `release` profile as closely as
+ # possible, but using settings that are more beneficial for iterative
