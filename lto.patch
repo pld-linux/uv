@@ -1,0 +1,18 @@
+Disable LTO for 32-bit targets. Both fat and thin LTO SIGABRT during
+linking of the uv binary on i686/armv7hl/x32 because LLVM's IR/bitcode
+working set exhausts the ~3 GB process virtual address space. Without
+LTO each crate's symbols stay independent, the linker handles them one
+at a time, and peak memory stays well under the limit. Slightly larger
+and slower binary on 32-bit, but the binary builds.
+
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -383,7 +383,7 @@
+
+ [profile.release]
+ strip = true
+-lto = "fat"
++lto = false
+
+ # This profile is meant to mimic the `release` profile as closely as
+ # possible, but using settings that are more beneficial for iterative

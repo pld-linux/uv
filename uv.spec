@@ -18,7 +18,7 @@ Source0:	https://github.com/astral-sh/uv/archive/%{version}/%{name}-%{version}.t
 # tar cJf uv-crates-%%{version}.tar.xz vendor Cargo.lock
 Source1:	%{name}-crates-%{crates_ver}.tar.xz
 # Source1-md5:	2ff89da4d7c0cdb37b70d94652dd815d
-Patch0:		lto-thin-32bit.patch
+Patch0:		lto.patch
 URL:		https://github.com/astral-sh/uv
 BuildRequires:	bzip2-devel
 BuildRequires:	cargo
