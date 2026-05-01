@@ -7,7 +7,7 @@
 # 32-bit linkers can't fit uv's debug info into the ~3 GB process
 # address space, so drop debuginfo and the -debuginfo/-debugsource
 # subpackages on 32-bit only.
-%ifarch %{ix86} %{arm} x32
+%ifarch %{ix86} %{arm}
 %define		_enable_debug_packages	0
 %endif
 
@@ -26,7 +26,6 @@ Source0:	https://github.com/astral-sh/uv/archive/%{version}/%{name}-%{version}.t
 Source1:	%{name}-crates-%{crates_ver}.tar.xz
 # Source1-md5:	2ff89da4d7c0cdb37b70d94652dd815d
 Patch0:		lto.patch
-Patch1:		aws-lc-x32.patch
 URL:		https://github.com/astral-sh/uv
 BuildRequires:	bzip2-devel
 BuildRequires:	cargo
@@ -39,6 +38,11 @@ BuildRequires:	xz
 BuildRequires:	xz-devel
 %{?rust_req}
 ExclusiveArch:	%{rust_arches}
+# aws-lc-sys (uv's TLS backend via aws-lc-rs) does not support x32:
+# multiple inline-asm and 64-bit-limb paths gate on OPENSSL_X86_64
+# alone, treating it as synonymous with 64-bit BN_ULONG, which breaks
+# under x32's 32-bit pointers. aws-lc upstream lists no x32 target.
+ExcludeArch:	x32
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
@@ -97,29 +101,11 @@ Zshowe dopełnianie składni dla polecenia uv.
 
 %prep
 %setup -q -a1
-%ifarch %{ix86} %{arm} x32
+%ifarch %{ix86} %{arm}
 %patch -P0 -p1
 %endif
 
-# aws-lc-sys vendored source: gate RSAZ_ENABLED and EC_NISTP s2n-bignum
-# 64-bit paths on OPENSSL_64_BIT (broken on x32 where OPENSSL_X86_64 is
-# defined but BN_ULONG is uint32_t). Refresh vendored crate checksums
-# so cargo accepts the modified files in offline mode.
-awslc_files="vendor/aws-lc-sys/aws-lc/crypto/fipsmodule/bn/rsaz_exp.h
-vendor/aws-lc-sys/aws-lc/crypto/fipsmodule/ec/ec_nistp.h"
-for f in $awslc_files; do
-    sha256sum "$f"
-done > aws-lc-x32.sha256.old
-%patch -P1 -p1
-while read old_sum f; do
-    new_sum=$(sha256sum "$f" | cut -f1 -d' ')
-    %{__sed} -i -e "s/$old_sum/$new_sum/" vendor/aws-lc-sys/.cargo-checksum.json
-done < aws-lc-x32.sha256.old
-rm -f aws-lc-x32.sha256.old
-
-# use our offline registry
 export CARGO_HOME="$(pwd)/.cargo"
-
 mkdir -p "$CARGO_HOME"
 cat >.cargo/config.toml <<EOF
 [source.crates-io]
@@ -133,11 +119,7 @@ EOF
 export CARGO_HOME="$(pwd)/.cargo"
 export CARGO_OFFLINE=true
 export CARGO_TERM_VERBOSE=true
-%ifarch x32
-export CARGO_BUILD_TARGET=x86_64-unknown-linux-gnux32
-export PKG_CONFIG_ALLOW_CROSS=1
-%endif
-%ifarch %{ix86} %{arm} x32
+%ifarch %{ix86} %{arm}
 export RUSTFLAGS="-C debuginfo=0 -C strip=none"
 %endif
 
