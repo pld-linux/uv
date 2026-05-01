@@ -4,6 +4,13 @@
 #
 %define		crates_ver	%{version}
 
+# 32-bit linkers can't fit uv's debug info into the ~3 GB process
+# address space, so drop debuginfo and the -debuginfo/-debugsource
+# subpackages on 32-bit only.
+%ifarch %{ix86} %{arm} x32
+%define		_enable_debug_packages	0
+%endif
+
 Summary:	An extremely fast Python package and project manager
 Summary(pl.UTF-8):	Bardzo szybki menedżer pakietów i projektów Pythonowych
 Name:		uv
@@ -112,6 +119,9 @@ export CARGO_TERM_VERBOSE=true
 %ifarch x32
 export CARGO_BUILD_TARGET=x86_64-unknown-linux-gnux32
 export PKG_CONFIG_ALLOW_CROSS=1
+%endif
+%ifarch %{ix86} %{arm} x32
+export RUSTFLAGS="-C debuginfo=0 -C strip=none"
 %endif
 
 %cargo_build --frozen --bin uv --bin uvx
