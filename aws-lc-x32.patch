@@ -1,0 +1,22 @@
+aws-lc's RSAZ_mod_exp_avx512_x2 fast path is declared with uint64_t*
+parameters and is called from BN_mod_exp_mont_consttime_x2 with
+BN_ULONG*. On x86_64-gnu BN_ULONG == uint64_t so the call typechecks.
+On x32 (x86_64 ISA, 32-bit pointers) BN_ULONG == uint32_t but
+RSAZ_512_ENABLED is still set because the AVX-512 instructions exist —
+gcc then refuses with -Werror=incompatible-pointer-types.
+
+Gate the fast path on BN_BITS2 == 64 so x32 (and any future ABI with
+32-bit BN_ULONG on x86_64-class hardware) falls back to the generic
+constant-time modular exponentiation path.
+
+--- a/vendor/aws-lc-sys/aws-lc/crypto/fipsmodule/bn/exponentiation.c
++++ b/vendor/aws-lc-sys/aws-lc/crypto/fipsmodule/bn/exponentiation.c
+@@ -1176,7 +1176,7 @@
+ {
+   int ret = 0;
+
+-#ifdef RSAZ_512_ENABLED
++#if defined(RSAZ_512_ENABLED) && BN_BITS2 == 64
+   if (CRYPTO_is_AVX512IFMA_capable() &&
+      (((a1->width == 16) && (p1->width == 16) && (BN_num_bits(m1) == 1024) &&
+        (a2->width == 16) && (p2->width == 16) && (BN_num_bits(m2) == 1024)) ||

@@ -26,6 +26,7 @@ Source0:	https://github.com/astral-sh/uv/archive/%{version}/%{name}-%{version}.t
 Source1:	%{name}-crates-%{crates_ver}.tar.xz
 # Source1-md5:	2ff89da4d7c0cdb37b70d94652dd815d
 Patch0:		lto.patch
+Patch1:		aws-lc-x32.patch
 URL:		https://github.com/astral-sh/uv
 BuildRequires:	bzip2-devel
 BuildRequires:	cargo
@@ -99,6 +100,15 @@ Zshowe dopełnianie składni dla polecenia uv.
 %ifarch %{ix86} %{arm} x32
 %patch -P0 -p1
 %endif
+
+# aws-lc-sys vendored source: skip RSAZ_mod_exp_avx512_x2 on x32
+# (BN_BITS2 != 64). Refresh the vendored crate checksum so cargo
+# accepts the modified file in offline mode.
+awslc_c=vendor/aws-lc-sys/aws-lc/crypto/fipsmodule/bn/exponentiation.c
+old_sum=$(sha256sum "$awslc_c" | cut -f1 -d' ')
+%patch -P1 -p1
+new_sum=$(sha256sum "$awslc_c" | cut -f1 -d' ')
+%{__sed} -i -e "s/$old_sum/$new_sum/" vendor/aws-lc-sys/.cargo-checksum.json
 
 # use our offline registry
 export CARGO_HOME="$(pwd)/.cargo"
