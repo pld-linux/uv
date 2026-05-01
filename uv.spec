@@ -101,14 +101,21 @@ Zshowe dopełnianie składni dla polecenia uv.
 %patch -P0 -p1
 %endif
 
-# aws-lc-sys vendored source: skip RSAZ_mod_exp_avx512_x2 on x32
-# (BN_BITS2 != 64). Refresh the vendored crate checksum so cargo
-# accepts the modified file in offline mode.
-awslc_c=vendor/aws-lc-sys/aws-lc/crypto/fipsmodule/bn/exponentiation.c
-old_sum=$(sha256sum "$awslc_c" | cut -f1 -d' ')
+# aws-lc-sys vendored source: gate RSAZ_ENABLED and EC_NISTP s2n-bignum
+# 64-bit paths on OPENSSL_64_BIT (broken on x32 where OPENSSL_X86_64 is
+# defined but BN_ULONG is uint32_t). Refresh vendored crate checksums
+# so cargo accepts the modified files in offline mode.
+awslc_files="vendor/aws-lc-sys/aws-lc/crypto/fipsmodule/bn/rsaz_exp.h
+vendor/aws-lc-sys/aws-lc/crypto/fipsmodule/ec/ec_nistp.h"
+for f in $awslc_files; do
+    sha256sum "$f"
+done > aws-lc-x32.sha256.old
 %patch -P1 -p1
-new_sum=$(sha256sum "$awslc_c" | cut -f1 -d' ')
-%{__sed} -i -e "s/$old_sum/$new_sum/" vendor/aws-lc-sys/.cargo-checksum.json
+while read old_sum f; do
+    new_sum=$(sha256sum "$f" | cut -f1 -d' ')
+    %{__sed} -i -e "s/$old_sum/$new_sum/" vendor/aws-lc-sys/.cargo-checksum.json
+done < aws-lc-x32.sha256.old
+rm -f aws-lc-x32.sha256.old
 
 # use our offline registry
 export CARGO_HOME="$(pwd)/.cargo"
